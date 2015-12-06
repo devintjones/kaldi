@@ -42,10 +42,9 @@ done
 rm -r data/local/data/links 2>/dev/null
 mkdir -p data/local/data/links || exit 1;
 
-for subdir in fe_03_p1_sph1  fe_03_p1_sph3  fe_03_p1_sph5  fe_03_p1_sph7 \
-  fe_03_p2_sph1  fe_03_p2_sph3  fe_03_p2_sph5  fe_03_p2_sph7 fe_03_p1_sph2 \
-  fe_03_p1_sph4  fe_03_p1_sph6  fe_03_p1_tran  fe_03_p2_sph2  fe_03_p2_sph4 \
-  fe_03_p2_sph6  fe_03_p2_tran; do
+for subdir in \
+  fe_03_p2_sph1  fe_03_p2_sph2   \
+  fe_03_p2_tran; do
   found_subdir=false
   for dir in $*; do
     if [ -d $dir/$subdir ]; then
@@ -82,21 +81,21 @@ fi
 
 if [ $stage -le 0 ]; then
 
-  find $links/fe_03_p1_tran/data $links/fe_03_p2_tran/data -name '*.txt'  > $tmpdir/transcripts.flist
+  find $links/fe_03_p2_tran/data -name '*.txt'  > $tmpdir/transcripts.flist
 
-  for dir in fe_03_p{1,2}_sph{1,2,3,4,5,6,7}; do
+  for dir in fe_03_p2_sph{1,2}; do
     find $links/$dir/ -name '*.sph'
   done > $tmpdir/sph.flist
 
   n=`cat $tmpdir/transcripts.flist | wc -l`
   if [ $n -ne 11699 ]; then
     echo "Expected to find 11699 transcript files in the Fisher data, found $n"
-    exit 1;
+    #exit 1;
   fi
   n=`cat $tmpdir/sph.flist | wc -l`
   if [ $n -ne 11699 ]; then
     echo "Expected to find 11699 .sph files in the Fisher data, found $n"
-    exit 1;
+    #exit 1;
   fi
 fi
 
@@ -180,15 +179,14 @@ if [ $stage -le 4 ]; then
   # get the spk2gender information.  This is not a standard part of our
   # file formats
   # The files "filetable2fe_03_p2_sph1 fe_03_05852.sph ff
-  cat $links/fe_03_p1_sph{1,2,3,4,5,6,7}/filetable.txt \
-    $links/fe_03_p2_sph{1,2,3,4,5,6,7}/docs/filetable2.txt | \
+  cat $links/fe_03_p2_sph{1,2}/docs/filetable2.txt | \
   perl -ane 'm:^\S+ (\S+)\.sph ([fm])([fm]): || die "bad line $_;"; print "$1-A $2\n", "$1-B $3\n"; ' | \
    sort | uniq | utils/filter_scp.pl data/train_all/spk2utt > data/train_all/spk2gender
 
   if [ ! -s data/train_all/spk2gender ]; then
     echo "It looks like our first try at getting the spk2gender info did not work."
     echo "(possibly older distribution?)  Trying something else."
-    cat $links/fe_03_p1_tran/doc/fe_03_p1_filelist.tbl  $links/fe_03_p2_tran/doc/fe_03_p2_filelist.tbl  | \
+    cat $links/fe_03_p2_tran/doc/fe_03_p2_filelist.tbl  | \
        perl -ane 'm:fe_03_p[12]_sph\d\t(\d+)\t([mf])([mf]): || die "Bad line $_";
                 print "fe_03_$1-A $2\n", "fe_03_$1-B $3\n"; ' | \
          sort | uniq | utils/filter_scp.pl data/train_all/spk2utt > data/train_all/spk2gender
@@ -196,7 +194,7 @@ if [ $stage -le 4 ]; then
 fi
 
 if [ ! -z "$calldata" ]; then # fix speaker IDs
-  cat $links/fe_03_p{1,2}_tran/doc/*calldata.tbl > $tmpdir/combined-calldata.tbl
+  cat $links/fe_03_p2_tran/doc/*calldata.tbl > $tmpdir/combined-calldata.tbl
   local/fisher_fix_speakerid.pl $tmpdir/combined-calldata.tbl data/train_all
   utils/utt2spk_to_spk2utt.pl data/train_all/utt2spk.new > data/train_all/spk2utt.new
   # patch files
@@ -206,6 +204,12 @@ if [ ! -z "$calldata" ]; then # fix speaker IDs
   done
   rm $tmpdir/combined-calldata.tbl
 fi
+
+
+if [ $stage -le 4 ]; then
+    cat data/train_all/utt2spk | awk  '{printf("%s %s\n", $1, $1);}' > data/train_all/utt2uniq
+fi
+
 
 echo "Data preparation succeeded"
 
